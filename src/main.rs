@@ -12,10 +12,29 @@ use lettre::{
 use sha2::{Digest, Sha256};
 
 fn main() {
-    let url = env::var("URL").expect("env var URL not set");
-    // log to stderr
+    let url_str = env::var("URL").expect("env var URL not set");
+
+    let mut changed_url = Vec::new();
+
+    for url in url_str.split_whitespace() {
+        if reslove(url) {
+            eprintln!("Web page changed: {}", url);
+            changed_url.push(url);
+        }
+    }
+
+    if !changed_url.is_empty() {
+        eprintln!("Sending email");
+        send_email(&changed_url);
+    } else {
+        eprintln!("Web pages are not changed");
+    }
+    eprintln!("Done");
+}
+
+fn reslove(url: &str) -> bool {
     eprintln!("Start fetching: {}", url);
-    let result = reqwest::blocking::get(&url);
+    let result = reqwest::blocking::get(url);
     if result.is_err() {
         eprintln!("Error fetching: {}", result.err().unwrap());
         std::process::exit(1);
@@ -30,15 +49,7 @@ fn main() {
     hasher.update(data);
     let hash = hasher.finalize();
     // hash bytes to base64
-    let changed = compare_store(&url, hash);
-    if changed {
-        eprintln!("Web page changed");
-        eprintln!("Sending email");
-        send_email(&url);
-    } else {
-        eprintln!("Web page not changed");
-    }
-    eprintln!("Done");
+    compare_store(&url, hash)
 }
 
 fn compare_store<T: AsRef<[u8]>>(url: &str, hash: T) -> bool {
@@ -71,17 +82,18 @@ fn compare_store<T: AsRef<[u8]>>(url: &str, hash: T) -> bool {
     exists
 }
 
-fn send_email(url: &str) {
+fn send_email(url: &Vec<&str>) {
     let username = env::var("EMAIL_USERNAME").expect("env var EMAIL_USERNAME not set");
     let password = env::var("EMAIL_PASSWORD").expect("env var EMAIL_PASSWORD not set");
     let server = env::var("EMAIL_SERVER").expect("env var EMAIL_SERVER not set");
     let to = env::var("EMAIL_TO").expect("env var EMAIL_TO not set");
+    let url_str = url.join("<br>");
     let email = Message::builder()
         .from(format!("web watcher <{}>", username).parse().unwrap())
         .to(to.parse().unwrap())
         .subject("网站更新提醒")
         .header(ContentType::TEXT_HTML)
-        .body(format!("网站地址: <a href=\"{url}\">{url}</a>", url = url))
+        .body(format!("网站地址: {}", url_str))
         .unwrap();
     let creds = Credentials::new(username, password);
 
