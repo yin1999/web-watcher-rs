@@ -4,7 +4,7 @@ use std::{
     io::{Read, Write},
 };
 
-use base64::encode as base64_encode;
+use base64::{Engine as _, engine::general_purpose};
 use lettre::{
     message::header::ContentType, transport::smtp::authentication::Credentials, Message,
     SmtpTransport, Transport,
@@ -55,7 +55,7 @@ fn reslove(url: &str) -> bool {
 fn compare_store<T: AsRef<[u8]>>(url: &str, hash: T) -> bool {
     // let tmpdir = TempDir::new("webwatcher").expect("Error creating temp dir");
     let tmpdir = env::temp_dir();
-    let filename = base64_encode(url);
+    let filename = general_purpose::STANDARD.encode(url);
     let hash_file = tmpdir.join(format!("web_watcher_{}", filename));
     let exists = hash_file.exists();
     if exists {
